@@ -59,9 +59,14 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
   const { status, spec } = item.jsonData;
   const isReady = status.phase === 'Ready';
 
+  // handleDelete captures `item` via closure. If useGet refreshes the object
+  // between the Delete click and the Confirm click, the latest version of `item`
+  // is used — which is the desired behaviour.
   async function handleDelete() {
     setDeleteError(null);
     try {
+      // ClusterClaimClass.delete typing is not yet stable in the SDK; cast
+      // removed once the upstream type is published.
       await (ClusterClaimClass as any).delete(item);
       onDeleted?.();
     } catch (err: any) {
@@ -69,6 +74,8 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
     }
   }
 
+  // TODO: extract ScaleForm and DeleteConfirmation into sub-components when
+  // a third action (e.g. kubeconfig download) is added to this view.
   async function handleScale(e: React.FormEvent) {
     e.preventDefault();
     if (typeof scaleCount !== 'number' || scaleCount < 1) return;
@@ -118,6 +125,9 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
 
       {isReady ? (
         <>
+          {/* Scale and Delete panels are mutually exclusive: opening one hides
+              the other. If Scale is open the Delete button is not visible —
+              the user must cancel Scale first. Acceptable UX for v1. */}
           {!scaling && !confirmDelete && (
             <>
               <button
