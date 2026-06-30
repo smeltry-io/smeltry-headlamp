@@ -20,22 +20,26 @@ vi.mock('@kinvolk/headlamp-plugin/lib', () => ({
         {children}
       </div>
     ),
+    // Simplified stand-in for ResourceTable that covers the states exercised
+    // by these tests. Uses jsonData.metadata.name as the stable key to avoid
+    // React index-key warnings when items are reordered.
     ResourceTable: ({
       data,
-      columns,
+      errorMessage,
     }: {
       data: unknown[] | null;
-      columns: unknown[];
       errorMessage?: string | null;
+      columns: unknown[];
     }) => {
+      if (errorMessage) return <div role="alert">{errorMessage}</div>;
       if (data === null) return <div>Loading…</div>;
       if (data.length === 0) return <div>No clusters found</div>;
       return (
         <table>
           <tbody>
-            {(data as Record<string, unknown>[]).map((item, i) => (
-              <tr key={i} data-testid="cluster-row">
-                <td>{(item as { jsonData: { metadata: { name: string } } }).jsonData.metadata.name}</td>
+            {(data as Array<{ jsonData: { metadata: { name: string } } }>).map(item => (
+              <tr key={item.jsonData.metadata.name} data-testid="cluster-row">
+                <td>{item.jsonData.metadata.name}</td>
               </tr>
             ))}
           </tbody>
@@ -102,5 +106,15 @@ describe('ClusterClaimList', () => {
     render(<ClusterClaimList />);
 
     expect(screen.getByText('Clusters')).toBeDefined();
+  });
+
+  // Story 6 — API error (e.g. 403 from kube-apiserver) is surfaced to the user
+  it('passes the API error message to the table when useList returns an error', () => {
+    mockUseList.mockReturnValue([null, { message: 'Forbidden' }]);
+
+    render(<ClusterClaimList />);
+
+    expect(screen.getByRole('alert')).toBeDefined();
+    expect(screen.getByText('Forbidden')).toBeDefined();
   });
 });
