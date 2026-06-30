@@ -8,9 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseGet = vi.hoisted(() => vi.fn());
 const mockPatch = vi.hoisted(() => vi.fn());
+const mockDelete = vi.hoisted(() => vi.fn());
 
 vi.mock('../crd', () => ({
-  ClusterClaimClass: { useGet: mockUseGet, patch: mockPatch },
+  ClusterClaimClass: { useGet: mockUseGet, patch: mockPatch, delete: mockDelete },
   ServerClaimClass: { useGet: vi.fn() },
 }));
 
@@ -51,6 +52,7 @@ describe('ClusterClaimDetail', () => {
   beforeEach(() => {
     mockUseGet.mockReset();
     mockPatch.mockReset();
+    mockDelete.mockReset();
   });
 
   // Story 6 — detail view shows phase
@@ -179,6 +181,80 @@ describe('ClusterClaimDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: /apply/i }));
 
     expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  // Story 6 — delete: button visible when Ready
+  it('shows a Delete button when the cluster is Ready', () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: /delete/i })).toBeDefined();
+  });
+
+  // Story 6 — delete: no button when not Ready
+  it('does not show a Delete button when cluster is not Ready', () => {
+    mockUseGet.mockReturnValue([makeClaim({ phase: 'Provisioning' }), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: /delete/i })).toBeNull();
+  });
+
+  // Story 6 — delete: confirmation dialog shows cluster name
+  it('shows a confirmation dialog with the cluster name when Delete is clicked', async () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /delete/i }));
+
+    expect(screen.getByRole('button', { name: /confirm/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDefined();
+    // confirmation paragraph must mention the cluster name
+    expect(screen.getByText(/delete cluster/i)).toBeDefined();
+  });
+
+  // Story 6 — delete: cancel closes dialog without calling delete
+  it('closes the confirmation dialog on Cancel without deleting', async () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /delete/i }));
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /confirm/i })).toBeNull();
+  });
+
+  // Story 6 — delete: confirm calls delete and onDeleted
+  it('calls delete and onDeleted when confirmed', async () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+    mockDelete.mockResolvedValueOnce({});
+    const onDeleted = vi.fn();
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={onDeleted} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /delete/i }));
+    await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+    expect(mockDelete).toHaveBeenCalledOnce();
+    expect(onDeleted).toHaveBeenCalledOnce();
+  });
+
+  // Story 6 — delete: API error displayed in dialog
+  it('shows an error in the confirmation dialog when delete fails', async () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+    mockDelete.mockRejectedValueOnce({ message: 'permission denied' });
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /delete/i }));
+    await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+    expect(await screen.findByRole('alert')).toBeDefined();
+    expect(await screen.findByText(/permission denied/i)).toBeDefined();
   });
 
   // Story 6 — API error

@@ -36,13 +36,16 @@ function ActionsDisabledNotice({ phase }: { phase: string }) {
 interface Props {
   name: string;
   namespace: string;
+  onDeleted?: () => void;
 }
 
-export function ClusterClaimDetail({ name, namespace }: Props) {
+export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
   const [claim, error] = ClusterClaimClass.useGet(name, namespace);
   const [scaling, setScaling] = useState(false);
   const [scaleCount, setScaleCount] = useState<number | ''>(1);
   const [scaleError, setScaleError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (error) {
     return <div role="alert">{error.message}</div>;
@@ -55,6 +58,16 @@ export function ClusterClaimDetail({ name, namespace }: Props) {
   const item = claim as ClusterClaimDetailItem;
   const { status, spec } = item.jsonData;
   const isReady = status.phase === 'Ready';
+
+  async function handleDelete() {
+    setDeleteError(null);
+    try {
+      await (ClusterClaimClass as any).delete(item);
+      onDeleted?.();
+    } catch (err: any) {
+      setDeleteError(err?.message ?? 'Unknown error');
+    }
+  }
 
   async function handleScale(e: React.FormEvent) {
     e.preventDefault();
@@ -105,15 +118,37 @@ export function ClusterClaimDetail({ name, namespace }: Props) {
 
       {isReady ? (
         <>
-          {!scaling && (
-            <button
-              onClick={() => {
-                setScaleCount(spec.machineCount);
-                setScaling(true);
-              }}
-            >
-              Scale
-            </button>
+          {!scaling && !confirmDelete && (
+            <>
+              <button
+                onClick={() => {
+                  setScaleCount(spec.machineCount);
+                  setScaling(true);
+                }}
+              >
+                Scale
+              </button>
+              <button onClick={() => setConfirmDelete(true)}>Delete</button>
+            </>
+          )}
+
+          {confirmDelete && (
+            <div>
+              {deleteError && <div role="alert">{deleteError}</div>}
+              <p>
+                Delete cluster <strong>{item.jsonData.metadata.name}</strong>? This action cannot be
+                undone.
+              </p>
+              <button onClick={handleDelete}>Confirm</button>
+              <button
+                onClick={() => {
+                  setConfirmDelete(false);
+                  setDeleteError(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           )}
 
           {scaling && (
