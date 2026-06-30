@@ -12,6 +12,14 @@
     "tsc": "headlamp-plugin tsc",
     "test": "headlamp-plugin test"
   },
+  "prettier": "@headlamp-k8s/eslint-config/prettier-config",
+  "eslintConfig": {
+    "extends": [
+      "@headlamp-k8s",
+      "prettier",
+      "plugin:jsx-a11y/recommended"
+    ]
+  },
   "overrides": {
     "typescript": "5.6.2"
   },
