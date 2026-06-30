@@ -3,6 +3,7 @@
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAddonUseList = vi.hoisted(() => vi.fn());
@@ -92,5 +93,41 @@ describe('ClusterClaimForm', () => {
 
     expect(await screen.findByRole('alert')).toBeDefined();
     expect(await screen.findByText(/quota exceeded/i)).toBeDefined();
+  });
+
+  // Story 6 — happy path: onSuccess called after successful create
+  it('calls onSuccess with the cluster name after successful create', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
+    mockSiteUseList.mockReturnValue([[makeSiteConfig('paris-dc1')], null]);
+    mockCreate.mockResolvedValueOnce({});
+    const onSuccess = vi.fn();
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={onSuccess} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('AddonProfile'), 'default');
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    await userEvent.clear(screen.getByLabelText('Machine count'));
+    await userEvent.type(screen.getByLabelText('Machine count'), '2');
+    await userEvent.click(screen.getByRole('button', { name: /create/i }));
+
+    expect(onSuccess).toHaveBeenCalledOnce();
+    const [name] = onSuccess.mock.calls[0];
+    expect(name).toMatch(/^default-\d+$/);
+  });
+
+  // Story 6 — machineCount = 0 keeps submit disabled
+  it('disables submit when machine count is set to 0', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
+    mockSiteUseList.mockReturnValue([[makeSiteConfig('paris-dc1')], null]);
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('AddonProfile'), 'default');
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    await userEvent.clear(screen.getByLabelText('Machine count'));
+    await userEvent.type(screen.getByLabelText('Machine count'), '0');
+
+    const btn = screen.getByRole('button', { name: /create/i });
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
   });
 });

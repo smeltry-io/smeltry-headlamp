@@ -7,6 +7,15 @@ import { AddonProfileClass, ClusterClaimClass, SiteConfigClass } from '../crd';
 
 const PORTAL_SYSTEM = 'portal-system';
 
+// Kubernetes DNS-1123 label: lowercase alphanumeric and hyphens, max 63 chars.
+function toDNS1123(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 52);
+}
+
 interface Props {
   namespace: string;
   onSuccess: (name: string) => void;
@@ -18,11 +27,11 @@ export function ClusterClaimForm({ namespace, onSuccess }: Props) {
 
   const [addonProfile, setAddonProfile] = useState('');
   const [site, setSite] = useState('');
-  const [machineCount, setMachineCount] = useState(1);
+  const [machineCount, setMachineCount] = useState<number | ''>(1);
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const isValid = addonProfile !== '' && site !== '' && machineCount > 0;
+  const isValid = addonProfile !== '' && site !== '' && typeof machineCount === 'number' && machineCount > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +41,7 @@ export function ClusterClaimForm({ namespace, onSuccess }: Props) {
     setSubmitting(true);
 
     try {
-      const name = `${addonProfile}-${Date.now()}`;
+      const name = `${toDNS1123(addonProfile)}-${Date.now()}`;
       await (ClusterClaimClass as any).create(
         {
           apiVersion: 'portal.smeltry.io/v1alpha1',
@@ -89,7 +98,7 @@ export function ClusterClaimForm({ namespace, onSuccess }: Props) {
           type="number"
           min={1}
           value={machineCount}
-          onChange={e => setMachineCount(Number(e.target.value))}
+          onChange={e => setMachineCount(e.target.value === '' ? '' : Number(e.target.value))}
         />
 
         <button type="submit" disabled={!isValid || submitting}>
