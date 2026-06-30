@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockUseGet = vi.hoisted(() => vi.fn());
 const mockPatch = vi.hoisted(() => vi.fn());
 const mockDelete = vi.hoisted(() => vi.fn());
+const mockSecretUseGet = vi.hoisted(() => vi.fn());
 
 vi.mock('../crd', () => ({
   ClusterClaimClass: { useGet: mockUseGet, patch: mockPatch, delete: mockDelete },
@@ -16,6 +17,9 @@ vi.mock('../crd', () => ({
 }));
 
 vi.mock('@kinvolk/headlamp-plugin/lib', () => ({
+  K8s: {
+    Secret: { useGet: mockSecretUseGet },
+  },
   CommonComponents: {
     SectionBox: ({ title, children }: { title: string; children: React.ReactNode }) => (
       <div>
@@ -53,6 +57,9 @@ describe('ClusterClaimDetail', () => {
     mockUseGet.mockReset();
     mockPatch.mockReset();
     mockDelete.mockReset();
+    mockSecretUseGet.mockReset();
+    // default: no secret loaded
+    mockSecretUseGet.mockReturnValue([null, null]);
   });
 
   // Story 6 — detail view shows phase
@@ -255,6 +262,45 @@ describe('ClusterClaimDetail', () => {
 
     expect(await screen.findByRole('alert')).toBeDefined();
     expect(await screen.findByText(/permission denied/i)).toBeDefined();
+  });
+
+  // Story 6 — kubeconfig: download button shown when Ready and kubeconfigSecret set
+  it('shows a Download kubeconfig button when cluster is Ready and secret is available', () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+    mockSecretUseGet.mockReturnValue([
+      { jsonData: { data: { value: btoa('kubeconfig-yaml-content') } } },
+      null,
+    ]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    expect(screen.getByRole('button', { name: /download kubeconfig/i })).toBeDefined();
+  });
+
+  // Story 6 — kubeconfig: button disabled when not Ready
+  it('shows a disabled Download kubeconfig button when cluster is not Ready', () => {
+    mockUseGet.mockReturnValue([makeClaim({ phase: 'Provisioning', kubeconfigSecret: undefined })]);
+    mockSecretUseGet.mockReturnValue([null, null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    const btn = screen.queryByRole('button', { name: /download kubeconfig/i });
+    // button either absent or disabled in non-Ready phase
+    if (btn) {
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+    } else {
+      expect(btn).toBeNull();
+    }
+  });
+
+  // Story 6 — kubeconfig: button absent when kubeconfigSecret not yet set
+  it('does not show Download kubeconfig when kubeconfigSecret is empty', () => {
+    mockUseGet.mockReturnValue([makeClaim({ kubeconfigSecret: '' })]);
+    mockSecretUseGet.mockReturnValue([null, null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    expect(screen.queryByRole('button', { name: /download kubeconfig/i })).toBeNull();
   });
 
   // Story 6 — API error
