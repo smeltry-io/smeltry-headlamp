@@ -6,6 +6,15 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 vi.mock('@kinvolk/headlamp-plugin/lib', () => ({
   registerRoute: vi.fn(),
   registerSidebarEntry: vi.fn(),
+  K8s: {
+    crd: {
+      makeCustomResourceClass: vi.fn(() => ({ useList: vi.fn() })),
+    },
+  },
+  CommonComponents: {
+    SectionBox: vi.fn(),
+    ResourceTable: vi.fn(),
+  },
 }));
 
 describe('smeltry-headlamp plugin registration', () => {

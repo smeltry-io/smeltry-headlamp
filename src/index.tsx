@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 The Smeltry Authors
 
+import React from 'react';
 import { registerRoute, registerSidebarEntry } from '@kinvolk/headlamp-plugin/lib';
+import { ClusterClaimList } from './components/ClusterClaimList';
 
 registerSidebarEntry({
   parent: null,
@@ -38,7 +40,7 @@ registerRoute({
   path: '/smeltry/clusters',
   sidebar: 'smeltry-clusters',
   name: 'SmeltryClusterList',
-  component: () => null,
+  component: () => <ClusterClaimList />,
 });
 
 registerRoute({
