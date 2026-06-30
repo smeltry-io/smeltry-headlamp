@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 The Smeltry Authors
 
-import { CommonComponents } from '@kinvolk/headlamp-plugin/lib';
+import { CommonComponents, K8s } from '@kinvolk/headlamp-plugin/lib';
 import React, { useState } from 'react';
 import { ClusterClaimClass } from '../crd';
 
@@ -41,6 +41,13 @@ interface Props {
 
 export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
   const [claim, error] = ClusterClaimClass.useGet(name, namespace);
+
+  // kubeconfigSecret name is only known once the claim is loaded; we pass ''
+  // until then so the hook is called unconditionally (rules of hooks).
+  const secretName =
+    (claim as ClusterClaimDetailItem | null)?.jsonData?.status?.kubeconfigSecret ?? '';
+  const [kubeSecret] = (K8s.Secret as any).useGet(secretName || null, namespace);
+
   const [scaling, setScaling] = useState(false);
   const [scaleCount, setScaleCount] = useState<number | ''>(1);
   const [scaleError, setScaleError] = useState<string | null>(null);
@@ -74,8 +81,19 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
     }
   }
 
-  // TODO: extract ScaleForm and DeleteConfirmation into sub-components when
-  // a third action (e.g. kubeconfig download) is added to this view.
+  function handleDownloadKubeconfig() {
+    const raw = kubeSecret?.jsonData?.data?.value;
+    if (!raw) return;
+    const yaml = atob(raw);
+    const blob = new Blob([yaml], { type: 'application/yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}-kubeconfig.yaml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleScale(e: React.FormEvent) {
     e.preventDefault();
     if (typeof scaleCount !== 'number' || scaleCount < 1) return;
@@ -139,6 +157,12 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
                 Scale
               </button>
               <button onClick={() => setConfirmDelete(true)}>Delete</button>
+              {/* kubeconfigSecret is set in status once the cluster reaches Ready
+                  and the operator has written the secret. The button is hidden
+                  (not disabled) when the secret name is absent. */}
+              {status.kubeconfigSecret && (
+                <button onClick={handleDownloadKubeconfig}>Download kubeconfig</button>
+              )}
             </>
           )}
 
