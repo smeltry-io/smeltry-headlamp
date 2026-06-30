@@ -2,12 +2,15 @@
 // Copyright 2026 The Smeltry Authors
 
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseGet = vi.hoisted(() => vi.fn());
+const mockPatch = vi.hoisted(() => vi.fn());
 
 vi.mock('../crd', () => ({
-  ClusterClaimClass: { useGet: mockUseGet },
+  ClusterClaimClass: { useGet: mockUseGet, patch: mockPatch },
   ServerClaimClass: { useGet: vi.fn() },
 }));
 
@@ -46,6 +49,7 @@ function makeClaim(overrides: Record<string, unknown> = {}) {
 describe('ClusterClaimDetail', () => {
   beforeEach(() => {
     mockUseGet.mockReset();
+    mockPatch.mockReset();
   });
 
   // Story 6 — detail view shows phase
@@ -93,6 +97,60 @@ describe('ClusterClaimDetail', () => {
     render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
 
     expect(screen.getByText('Loading…')).toBeDefined();
+  });
+
+  // Story 6 — scale: button visible when Ready
+  it('shows a Scale button when the cluster is Ready', () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    expect(screen.getByRole('button', { name: /scale/i })).toBeDefined();
+  });
+
+  // Story 6 — scale: no button when not Ready
+  it('does not show a Scale button when cluster is not Ready', () => {
+    mockUseGet.mockReturnValue([makeClaim({ status: { phase: 'Provisioning' } }), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    expect(screen.queryByRole('button', { name: /scale/i })).toBeNull();
+  });
+
+  // Story 6 — scale: PATCH called with new machineCount
+  it('patches machineCount when Scale form is submitted', async () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+    mockPatch.mockResolvedValueOnce({});
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /scale/i }));
+
+    const input = screen.getByLabelText(/machine count/i);
+    await userEvent.clear(input);
+    await userEvent.type(input, '5');
+    await userEvent.click(screen.getByRole('button', { name: /apply/i }));
+
+    expect(mockPatch).toHaveBeenCalledOnce();
+    const [patchedObj, patchData] = mockPatch.mock.calls[0];
+    expect(patchedObj.jsonData.metadata.name).toBe('ml-training');
+    expect(patchData).toMatchObject({ spec: { machineCount: 5 } });
+  });
+
+  // Story 6 — scale: API error displayed
+  it('shows an error when patch fails', async () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+    mockPatch.mockRejectedValueOnce({ message: 'forbidden' });
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /scale/i }));
+    await userEvent.clear(screen.getByLabelText(/machine count/i));
+    await userEvent.type(screen.getByLabelText(/machine count/i), '5');
+    await userEvent.click(screen.getByRole('button', { name: /apply/i }));
+
+    expect(await screen.findByRole('alert')).toBeDefined();
+    expect(await screen.findByText(/forbidden/i)).toBeDefined();
   });
 
   // Story 6 — API error
