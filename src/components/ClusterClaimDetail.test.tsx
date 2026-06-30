@@ -27,21 +27,22 @@ vi.mock('@kinvolk/headlamp-plugin/lib', () => ({
 
 import { ClusterClaimDetail } from './ClusterClaimDetail';
 
-function makeClaim(overrides: Record<string, unknown> = {}) {
+const BASE_STATUS = {
+  phase: 'Ready',
+  controlPlaneIP: '10.0.1.1',
+  controlPlaneDNS: 'ml-training-api.acme.infra.example.com',
+  webhookIP: '10.0.1.2',
+  webhookDNS: 'ml-training-wh.acme.infra.example.com',
+  kubeconfigSecret: 'ml-training-kubeconfig',
+  conditions: [],
+};
+
+function makeClaim(statusOverrides: Record<string, unknown> = {}) {
   return {
     jsonData: {
       metadata: { name: 'ml-training', namespace: 'tenant-acme' },
       spec: { site: 'paris-dc1', machineCount: 3, addonProfile: 'gpu-compute' },
-      status: {
-        phase: 'Ready',
-        controlPlaneIP: '10.0.1.1',
-        controlPlaneDNS: 'ml-training-api.acme.infra.example.com',
-        webhookIP: '10.0.1.2',
-        webhookDNS: 'ml-training-wh.acme.infra.example.com',
-        kubeconfigSecret: 'ml-training-kubeconfig',
-        conditions: [],
-      },
-      ...overrides,
+      status: { ...BASE_STATUS, ...statusOverrides },
     },
   };
 }
@@ -82,7 +83,7 @@ describe('ClusterClaimDetail', () => {
 
   // Story 6 — actions disabled while not Ready
   it('shows a provisioning notice when cluster is not Ready', () => {
-    mockUseGet.mockReturnValue([makeClaim({ status: { phase: 'Provisioning' } }), null]);
+    mockUseGet.mockReturnValue([makeClaim({ phase: 'Provisioning' }), null]);
 
     render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
 
@@ -110,7 +111,7 @@ describe('ClusterClaimDetail', () => {
 
   // Story 6 — scale: no button when not Ready
   it('does not show a Scale button when cluster is not Ready', () => {
-    mockUseGet.mockReturnValue([makeClaim({ status: { phase: 'Provisioning' } }), null]);
+    mockUseGet.mockReturnValue([makeClaim({ phase: 'Provisioning' }), null]);
 
     render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
 
@@ -151,6 +152,33 @@ describe('ClusterClaimDetail', () => {
 
     expect(await screen.findByRole('alert')).toBeDefined();
     expect(await screen.findByText(/forbidden/i)).toBeDefined();
+  });
+
+  // Story 6 — scale: Cancel hides the form
+  it('hides the scale form when Cancel is clicked', async () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /scale/i }));
+    expect(screen.getByLabelText(/machine count/i)).toBeDefined();
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(screen.queryByLabelText(/machine count/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /scale/i })).toBeDefined();
+  });
+
+  // Story 6 — scale: invalid count blocks PATCH
+  it('does not call patch when machine count is empty or zero', async () => {
+    mockUseGet.mockReturnValue([makeClaim(), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /scale/i }));
+    await userEvent.clear(screen.getByLabelText(/machine count/i));
+    await userEvent.click(screen.getByRole('button', { name: /apply/i }));
+
+    expect(mockPatch).not.toHaveBeenCalled();
   });
 
   // Story 6 — API error
