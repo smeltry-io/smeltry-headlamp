@@ -17,11 +17,5 @@
   },
   "devDependencies": {
     "@kinvolk/headlamp-plugin": "^0.14.0"
-  },
-  "allowScripts": {
-    "@swc/core@1.15.43": true,
-    "esbuild@0.25.12": true,
-    "msw@2.4.9": true,
-    "fsevents@2.3.3": true
   }
 }

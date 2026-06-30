@@ -28,6 +28,15 @@ describe('smeltry-headlamp plugin registration', () => {
     );
   });
 
+  it('registers a route for the top-level smeltry sidebar entry', async () => {
+    const lib = await import('@kinvolk/headlamp-plugin/lib');
+    await import('./index');
+
+    expect(lib.registerRoute).toHaveBeenCalledWith(
+      expect.objectContaining({ path: '/smeltry', name: 'SmeltryHome' })
+    );
+  });
+
   it('registers cluster list and detail routes', async () => {
     const lib = await import('@kinvolk/headlamp-plugin/lib');
     await import('./index');

@@ -28,6 +28,13 @@ registerSidebarEntry({
 });
 
 registerRoute({
+  path: '/smeltry',
+  sidebar: 'smeltry',
+  name: 'SmeltryHome',
+  component: () => null,
+});
+
+registerRoute({
   path: '/smeltry/clusters',
   sidebar: 'smeltry-clusters',
   name: 'SmeltryClusterList',
