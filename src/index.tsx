@@ -4,6 +4,7 @@
 import { registerRoute, registerSidebarEntry } from '@kinvolk/headlamp-plugin/lib';
 import React from 'react';
 import { ClusterClaimDetail } from './components/ClusterClaimDetail';
+import { ClusterClaimForm } from './components/ClusterClaimForm';
 import { ClusterClaimList } from './components/ClusterClaimList';
 
 registerSidebarEntry({
@@ -50,6 +51,20 @@ registerRoute({
   name: 'SmeltryClusterDetail',
   component: ({ match }: { match: { params: { namespace: string; name: string } } }) => (
     <ClusterClaimDetail name={match.params.name} namespace={match.params.namespace} />
+  ),
+});
+
+registerRoute({
+  path: '/smeltry/clusters/:namespace/new',
+  sidebar: 'smeltry-clusters',
+  name: 'SmeltryClusterCreate',
+  component: ({ match }: { match: { params: { namespace: string } } }) => (
+    <ClusterClaimForm
+      namespace={match.params.namespace}
+      onSuccess={() => {
+        window.location.href = '/smeltry/clusters';
+      }}
+    />
   ),
 });
 

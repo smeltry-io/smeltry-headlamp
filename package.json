@@ -14,10 +14,7 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": [
-      "eslint --fix -c package.json --max-warnings 0",
-      "git add"
-    ]
+    "src/**/*.{ts,tsx}": ["eslint --fix -c package.json --max-warnings 0"]
   },
   "prettier": "@headlamp-k8s/eslint-config/prettier-config",
   "eslintConfig": {

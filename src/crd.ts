@@ -18,3 +18,21 @@ export const ServerClaimClass = K8s.crd.makeCustomResourceClass({
   singularName: 'serverclaim',
   isNamespaced: true,
 });
+
+// AddonProfile and SiteConfig live in portal-system and are readable by all
+// authenticated tenants via the smeltry-catalog-reader ClusterRole.
+export const AddonProfileClass = K8s.crd.makeCustomResourceClass({
+  apiInfo: [{ group: 'portal.smeltry.io', version: 'v1alpha1' }],
+  kind: 'AddonProfile',
+  pluralName: 'addonprofiles',
+  singularName: 'addonprofile',
+  isNamespaced: true,
+});
+
+export const SiteConfigClass = K8s.crd.makeCustomResourceClass({
+  apiInfo: [{ group: 'portal.smeltry.io', version: 'v1alpha1' }],
+  kind: 'SiteConfig',
+  pluralName: 'siteconfigs',
+  singularName: 'siteconfig',
+  isNamespaced: true,
+});
