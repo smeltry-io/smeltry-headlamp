@@ -3,6 +3,7 @@
 
 import { registerRoute, registerSidebarEntry } from '@kinvolk/headlamp-plugin/lib';
 import React from 'react';
+import { ClusterClaimDetail } from './components/ClusterClaimDetail';
 import { ClusterClaimList } from './components/ClusterClaimList';
 
 registerSidebarEntry({
@@ -47,7 +48,9 @@ registerRoute({
   path: '/smeltry/clusters/:namespace/:name',
   sidebar: 'smeltry-clusters',
   name: 'SmeltryClusterDetail',
-  component: () => null,
+  component: ({ match }: { match: { params: { namespace: string; name: string } } }) => (
+    <ClusterClaimDetail name={match.params.name} namespace={match.params.namespace} />
+  ),
 });
 
 registerRoute({
