@@ -50,7 +50,13 @@ registerRoute({
   sidebar: 'smeltry-clusters',
   name: 'SmeltryClusterDetail',
   component: ({ match }: { match: { params: { namespace: string; name: string } } }) => (
-    <ClusterClaimDetail name={match.params.name} namespace={match.params.namespace} />
+    <ClusterClaimDetail
+      name={match.params.name}
+      namespace={match.params.namespace}
+      onDeleted={() => {
+        window.location.href = '/smeltry/clusters';
+      }}
+    />
   ),
 });
 
