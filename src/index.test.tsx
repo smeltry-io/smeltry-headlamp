@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 The Smeltry Authors
 
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 vi.mock('@kinvolk/headlamp-plugin/lib', () => ({
   registerRoute: vi.fn(),

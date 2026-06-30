@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 The Smeltry Authors
 
-import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 // vi.hoisted ensures mockUseList is initialised before the hoisted vi.mock factory runs.
 const mockUseList = vi.hoisted(() => vi.fn());

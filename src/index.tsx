@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 The Smeltry Authors
 
-import React from 'react';
 import { registerRoute, registerSidebarEntry } from '@kinvolk/headlamp-plugin/lib';
+import React from 'react';
 import { ClusterClaimList } from './components/ClusterClaimList';
 
 registerSidebarEntry({

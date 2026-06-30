@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 The Smeltry Authors
 
-import React from 'react';
 import { CommonComponents } from '@kinvolk/headlamp-plugin/lib';
+import React from 'react';
 import { ClusterClaimClass } from '../crd';
 
 // Minimal shape of a ClusterClaim object as returned by the kube-apiserver.
