@@ -2,6 +2,8 @@
 // Copyright 2026 The Smeltry Authors
 
 import { registerRoute, registerSidebarEntry } from '@kinvolk/headlamp-plugin/lib';
+import React from 'react';
+import { ClusterClaimList } from './components/ClusterClaimList';
 
 registerSidebarEntry({
   parent: null,
@@ -38,7 +40,7 @@ registerRoute({
   path: '/smeltry/clusters',
   sidebar: 'smeltry-clusters',
   name: 'SmeltryClusterList',
-  component: () => null,
+  component: () => <ClusterClaimList />,
 });
 
 registerRoute({
