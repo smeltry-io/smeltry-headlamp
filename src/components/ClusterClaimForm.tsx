@@ -16,6 +16,12 @@ function toDNS1123(s: string): string {
     .slice(0, 52);
 }
 
+interface MachineClassSummary {
+  machineClass: string;
+  availableCount: number;
+  tags?: string[];
+}
+
 interface Props {
   namespace: string;
   onSuccess: (name: string) => void;
@@ -27,11 +33,42 @@ export function ClusterClaimForm({ namespace, onSuccess }: Props) {
 
   const [addonProfile, setAddonProfile] = useState('');
   const [site, setSite] = useState('');
+  const [machineClass, setMachineClass] = useState('');
   const [machineCount, setMachineCount] = useState<number | ''>(1);
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const isValid = addonProfile !== '' && site !== '' && typeof machineCount === 'number' && machineCount > 0;
+  // Derive machine classes for the currently selected site from its status.
+  const selectedSiteConfig = (siteConfigs ?? []).find(
+    (s: any) => s.jsonData.metadata.name === site
+  );
+  const siteHasBeenSynced = site !== '' && selectedSiteConfig !== undefined;
+  const machineClasses: MachineClassSummary[] =
+    selectedSiteConfig?.jsonData?.status?.machineClasses ?? [];
+
+  // Derive required tags from the selected AddonProfile's machineConstraints.
+  const selectedAddonProfile = (addonProfiles ?? []).find(
+    (p: any) => p.jsonData.metadata.name === addonProfile
+  );
+  const requiredTags: string[] =
+    selectedAddonProfile?.jsonData?.spec?.machineConstraints?.requiredTags ?? [];
+
+  // Check if the chosen class satisfies the AddonProfile tag constraints.
+  const selectedClassSummary = machineClasses.find(mc => mc.machineClass === machineClass);
+  const classTags: string[] = selectedClassSummary?.tags ?? [];
+  const isIncompatible =
+    machineClass !== '' &&
+    requiredTags.length > 0 &&
+    requiredTags.some(tag => !classTags.includes(tag));
+
+  const isValid =
+    addonProfile !== '' &&
+    site !== '' &&
+    machineClass !== '' &&
+    !isIncompatible &&
+    machineClasses.length > 0 &&
+    typeof machineCount === 'number' &&
+    machineCount > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +84,7 @@ export function ClusterClaimForm({ namespace, onSuccess }: Props) {
           apiVersion: 'portal.smeltry.io/v1alpha1',
           kind: 'ClusterClaim',
           metadata: { name, namespace },
-          spec: { addonProfile, site, machineCount },
+          spec: { addonProfile, site, machineClass, machineCount },
         },
         namespace
       );
@@ -82,7 +119,10 @@ export function ClusterClaimForm({ namespace, onSuccess }: Props) {
         <select
           id="site"
           value={site}
-          onChange={e => setSite(e.target.value)}
+          onChange={e => {
+            setSite(e.target.value);
+            setMachineClass(''); // reset when site changes
+          }}
         >
           <option value="">— select —</option>
           {(siteConfigs ?? []).map((s: any) => (
@@ -91,6 +131,37 @@ export function ClusterClaimForm({ namespace, onSuccess }: Props) {
             </option>
           ))}
         </select>
+
+        {siteHasBeenSynced && machineClasses.length === 0 && (
+          <p data-testid="no-machines-message">
+            No machines available on this site.
+          </p>
+        )}
+
+        {machineClasses.length > 0 && (
+          <>
+            <label htmlFor="machineClass">Machine class</label>
+            <select
+              id="machineClass"
+              value={machineClass}
+              onChange={e => setMachineClass(e.target.value)}
+            >
+              <option value="">— select —</option>
+              {machineClasses.map(mc => (
+                <option key={mc.machineClass} value={mc.machineClass}>
+                  {mc.machineClass} ({mc.availableCount} available)
+                </option>
+              ))}
+            </select>
+
+            {isIncompatible && (
+              <p data-testid="machine-class-incompatibility">
+                This machine class is incompatible with the selected AddonProfile —
+                required tags missing: {requiredTags.filter(t => !classTags.includes(t)).join(', ')}.
+              </p>
+            )}
+          </>
+        )}
 
         <label htmlFor="machineCount">Machine count</label>
         <input

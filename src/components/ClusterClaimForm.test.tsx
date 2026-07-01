@@ -26,12 +26,31 @@ vi.mock('@kinvolk/headlamp-plugin/lib', () => ({
 
 import { ClusterClaimForm } from './ClusterClaimForm';
 
-function makeAddonProfile(name: string) {
-  return { jsonData: { metadata: { name }, spec: { description: name } } };
+interface MachineClassSummary {
+  machineClass: string;
+  availableCount: number;
+  tags?: string[];
 }
 
-function makeSiteConfig(name: string) {
-  return { jsonData: { metadata: { name } } };
+function makeAddonProfile(name: string, requiredTags: string[] = []) {
+  return {
+    jsonData: {
+      metadata: { name },
+      spec: {
+        description: name,
+        machineConstraints: requiredTags.length > 0 ? { requiredTags } : undefined,
+      },
+    },
+  };
+}
+
+function makeSiteConfig(name: string, machineClasses: MachineClassSummary[] = []) {
+  return {
+    jsonData: {
+      metadata: { name },
+      status: { machineClasses },
+    },
+  };
 }
 
 describe('ClusterClaimForm', () => {
@@ -80,13 +99,14 @@ describe('ClusterClaimForm', () => {
   // Story 6 — API error displayed on submit
   it('shows an API error message when create fails', async () => {
     mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
-    mockSiteUseList.mockReturnValue([[makeSiteConfig('paris-dc1')], null]);
+    mockSiteUseList.mockReturnValue([[makeSiteConfig('paris-dc1', [{ machineClass: 'standard', availableCount: 2 }])], null]);
     mockCreate.mockRejectedValueOnce({ message: 'quota exceeded' });
 
     render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
 
     await userEvent.selectOptions(screen.getByLabelText('AddonProfile'), 'default');
     await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    await userEvent.selectOptions(screen.getByLabelText('Machine class'), 'standard');
     await userEvent.clear(screen.getByLabelText('Machine count'));
     await userEvent.type(screen.getByLabelText('Machine count'), '3');
     await userEvent.click(screen.getByRole('button', { name: /create/i }));
@@ -98,7 +118,7 @@ describe('ClusterClaimForm', () => {
   // Story 6 — happy path: onSuccess called after successful create
   it('calls onSuccess with the cluster name after successful create', async () => {
     mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
-    mockSiteUseList.mockReturnValue([[makeSiteConfig('paris-dc1')], null]);
+    mockSiteUseList.mockReturnValue([[makeSiteConfig('paris-dc1', [{ machineClass: 'standard', availableCount: 2 }])], null]);
     mockCreate.mockResolvedValueOnce({});
     const onSuccess = vi.fn();
 
@@ -106,6 +126,7 @@ describe('ClusterClaimForm', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('AddonProfile'), 'default');
     await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    await userEvent.selectOptions(screen.getByLabelText('Machine class'), 'standard');
     await userEvent.clear(screen.getByLabelText('Machine count'));
     await userEvent.type(screen.getByLabelText('Machine count'), '2');
     await userEvent.click(screen.getByRole('button', { name: /create/i }));
@@ -129,5 +150,113 @@ describe('ClusterClaimForm', () => {
 
     const btn = screen.getByRole('button', { name: /create/i });
     expect((btn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  // Story — machine type selector: options shown from SiteConfig.status.machineClasses
+  it('shows machine class options from the selected site status', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
+    mockSiteUseList.mockReturnValue([[
+      makeSiteConfig('paris-dc1', [
+        { machineClass: 'gpu-large', availableCount: 3, tags: ['gpu'] },
+        { machineClass: 'standard', availableCount: 5 },
+      ]),
+    ], null]);
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+
+    expect(screen.getByLabelText('Machine class')).toBeDefined();
+    expect(screen.getByRole('option', { name: /gpu-large.*3/i })).toBeDefined();
+    expect(screen.getByRole('option', { name: /standard.*5/i })).toBeDefined();
+  });
+
+  // Story — machine type selector: "no machines" message when site has empty machineClasses
+  it('shows a no-machines message when the selected site has no available classes', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
+    mockSiteUseList.mockReturnValue([[
+      makeSiteConfig('lyon-dc2', []),
+    ], null]);
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'lyon-dc2');
+
+    expect(screen.getByTestId('no-machines-message')).toBeDefined();
+    expect((screen.getByRole('button', { name: /create/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  // Story — machine type selector: submit disabled without machineClass
+  it('disables submit when machineClass is not selected', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
+    mockSiteUseList.mockReturnValue([[
+      makeSiteConfig('paris-dc1', [{ machineClass: 'standard', availableCount: 2 }]),
+    ], null]);
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('AddonProfile'), 'default');
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    // do NOT select a machine class
+
+    expect((screen.getByRole('button', { name: /create/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  // Story — machine type selector: incompatibility warning when AddonProfile requires tags
+  it('shows an incompatibility warning when the selected class lacks required tags', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('gpu-compute', ['gpu'])], null]);
+    mockSiteUseList.mockReturnValue([[
+      makeSiteConfig('paris-dc1', [
+        { machineClass: 'standard', availableCount: 5, tags: [] },
+      ]),
+    ], null]);
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('AddonProfile'), 'gpu-compute');
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    await userEvent.selectOptions(screen.getByLabelText('Machine class'), 'standard');
+
+    expect(screen.getByTestId('machine-class-incompatibility')).toBeDefined();
+    expect((screen.getByRole('button', { name: /create/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  // Story — machine type selector: no warning when class satisfies required tags
+  it('does not show incompatibility when the selected class has all required tags', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('gpu-compute', ['gpu'])], null]);
+    mockSiteUseList.mockReturnValue([[
+      makeSiteConfig('paris-dc1', [
+        { machineClass: 'gpu-large', availableCount: 2, tags: ['gpu'] },
+      ]),
+    ], null]);
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('AddonProfile'), 'gpu-compute');
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    await userEvent.selectOptions(screen.getByLabelText('Machine class'), 'gpu-large');
+
+    expect(screen.queryByTestId('machine-class-incompatibility')).toBeNull();
+    expect((screen.getByRole('button', { name: /create/i }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // Story — machine type selector: machineClass included in create payload
+  it('includes machineClass in the ClusterClaim spec on create', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
+    mockSiteUseList.mockReturnValue([[
+      makeSiteConfig('paris-dc1', [{ machineClass: 'standard', availableCount: 2 }]),
+    ], null]);
+    mockCreate.mockResolvedValueOnce({});
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('AddonProfile'), 'default');
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    await userEvent.selectOptions(screen.getByLabelText('Machine class'), 'standard');
+    await userEvent.click(screen.getByRole('button', { name: /create/i }));
+
+    expect(mockCreate).toHaveBeenCalledOnce();
+    const [payload] = mockCreate.mock.calls[0];
+    expect(payload.spec.machineClass).toBe('standard');
   });
 });
