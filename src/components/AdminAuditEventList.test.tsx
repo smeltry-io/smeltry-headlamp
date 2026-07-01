@@ -61,6 +61,8 @@ describe('AdminAuditEventList', () => {
 
     render(<AdminAuditEventList />);
 
+    // Cluster-wide listing requires namespace: '' (Headlamp API convention)
+    expect(mockUseList).toHaveBeenCalledWith({ namespace: '' });
     expect(screen.getAllByTestId('admin-audit-row')).toHaveLength(2);
     expect(screen.getByText('tenant-acme')).toBeDefined();
     expect(screen.getByText('tenant-beta')).toBeDefined();

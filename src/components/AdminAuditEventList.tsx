@@ -40,9 +40,10 @@ export function AdminAuditEventList() {
         .filter(ev => !typeFilter || ev.jsonData?.spec?.type === typeFilter)
         .filter(ev => {
           if (!fromDate) return true;
+          // ISO 8601 timestamps are lexicographically sortable; fromDate is YYYY-MM-DD
+          // which is a valid prefix for comparison as long as timestamps are UTC.
           return ev.jsonData?.spec?.timestamp >= fromDate;
         })
-        .slice()
         .sort((a, b) => {
           const tA = a.jsonData?.spec?.timestamp ?? '';
           const tB = b.jsonData?.spec?.timestamp ?? '';
