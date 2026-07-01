@@ -3,6 +3,7 @@
 
 import { registerRoute, registerSidebarEntry } from '@kinvolk/headlamp-plugin/lib';
 import React from 'react';
+import { AuditEventList } from './components/AuditEventList';
 import { ClusterClaimDetail } from './components/ClusterClaimDetail';
 import { ClusterClaimForm } from './components/ClusterClaimForm';
 import { ClusterClaimList } from './components/ClusterClaimList';
@@ -29,6 +30,14 @@ registerSidebarEntry({
   label: 'Servers',
   url: '/smeltry/servers',
   icon: 'mdi:desktop-tower',
+});
+
+registerSidebarEntry({
+  parent: 'smeltry',
+  name: 'smeltry-history',
+  label: 'History',
+  url: '/smeltry/history',
+  icon: 'mdi:history',
 });
 
 registerRoute({
@@ -79,4 +88,11 @@ registerRoute({
   sidebar: 'smeltry-servers',
   name: 'SmeltryServerList',
   component: () => null,
+});
+
+registerRoute({
+  path: '/smeltry/history',
+  sidebar: 'smeltry-history',
+  name: 'SmeltryAuditHistory',
+  component: () => <AuditEventList />,
 });
