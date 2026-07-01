@@ -259,4 +259,42 @@ describe('ClusterClaimForm', () => {
     const [payload] = mockCreate.mock.calls[0];
     expect(payload.spec.machineClass).toBe('standard');
   });
+
+  // Story — machine type selector: changing site resets machineClass
+  it('resets machine class selection when site changes', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
+    mockSiteUseList.mockReturnValue([[
+      makeSiteConfig('paris-dc1', [{ machineClass: 'gpu-large', availableCount: 2, tags: ['gpu'] }]),
+      makeSiteConfig('lyon-dc2', [{ machineClass: 'standard', availableCount: 4 }]),
+    ], null]);
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    // Select a site and a machine class on that site.
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'paris-dc1');
+    await userEvent.selectOptions(screen.getByLabelText('Machine class'), 'gpu-large');
+    expect((screen.getByLabelText('Machine class') as HTMLSelectElement).value).toBe('gpu-large');
+
+    // Switch to a different site — machine class must be reset to empty.
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'lyon-dc2');
+    expect((screen.getByLabelText('Machine class') as HTMLSelectElement).value).toBe('');
+  });
+
+  // Story — machine type selector: "pending sync" state shown when site has never been synced
+  it('does not show "no machines" when site status has never been synced', async () => {
+    mockAddonUseList.mockReturnValue([[makeAddonProfile('default')], null]);
+    // SiteConfig with no status.machineClasses at all (operator has not run yet).
+    mockSiteUseList.mockReturnValue([[
+      { jsonData: { metadata: { name: 'new-site' } } },
+    ], null]);
+
+    render(<ClusterClaimForm namespace="tenant-acme" onSuccess={vi.fn()} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Site'), 'new-site');
+
+    // Must NOT show the "no machines" error — that implies synced-but-empty.
+    expect(screen.queryByTestId('no-machines-message')).toBeNull();
+    // Machine class selector must not appear either.
+    expect(screen.queryByLabelText('Machine class')).toBeNull();
+  });
 });

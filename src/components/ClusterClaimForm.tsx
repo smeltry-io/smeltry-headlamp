@@ -42,9 +42,12 @@ export function ClusterClaimForm({ namespace, onSuccess }: Props) {
   const selectedSiteConfig = (siteConfigs ?? []).find(
     (s: any) => s.jsonData.metadata.name === site
   );
-  const siteHasBeenSynced = site !== '' && selectedSiteConfig !== undefined;
-  const machineClasses: MachineClassSummary[] =
-    selectedSiteConfig?.jsonData?.status?.machineClasses ?? [];
+  // machineClasses is the array from status — null/undefined means the operator
+  // has never synced this site yet; an empty array means synced but no machines.
+  const rawMachineClasses: MachineClassSummary[] | null | undefined =
+    selectedSiteConfig?.jsonData?.status?.machineClasses;
+  const siteHasBeenSynced = site !== '' && Array.isArray(rawMachineClasses);
+  const machineClasses: MachineClassSummary[] = rawMachineClasses ?? [];
 
   // Derive required tags from the selected AddonProfile's machineConstraints.
   const selectedAddonProfile = (addonProfiles ?? []).find(
