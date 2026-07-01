@@ -42,10 +42,10 @@ const BASE_STATUS = {
   conditions: [],
 };
 
-function makeClaim(statusOverrides: Record<string, unknown> = {}) {
+function makeClaim(statusOverrides: Record<string, unknown> = {}, annotations: Record<string, string> = {}) {
   return {
     jsonData: {
-      metadata: { name: 'ml-training', namespace: 'tenant-acme' },
+      metadata: { name: 'ml-training', namespace: 'tenant-acme', annotations },
       spec: { site: 'paris-dc1', machineCount: 3, addonProfile: 'gpu-compute' },
       status: { ...BASE_STATUS, ...statusOverrides },
     },
@@ -235,25 +235,26 @@ describe('ClusterClaimDetail', () => {
     expect(screen.queryByRole('button', { name: /confirm/i })).toBeNull();
   });
 
-  // Story 6 — delete: confirm calls delete and onDeleted
-  it('calls delete and onDeleted when confirmed', async () => {
+  // Story 6 — delete: confirm patches delete-at annotation (grace period — no direct delete)
+  it('patches delete-at annotation and does not call delete when confirmed', async () => {
     mockUseGet.mockReturnValue([makeClaim(), null]);
-    mockDelete.mockResolvedValueOnce({});
-    const onDeleted = vi.fn();
+    mockPatch.mockResolvedValueOnce({});
 
-    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={onDeleted} />);
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={vi.fn()} />);
 
     await userEvent.click(screen.getByRole('button', { name: /delete/i }));
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
 
-    expect(mockDelete).toHaveBeenCalledOnce();
-    expect(onDeleted).toHaveBeenCalledOnce();
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockPatch).toHaveBeenCalledOnce();
+    const [, patchData] = mockPatch.mock.calls[0];
+    expect(patchData.metadata.annotations['portal.smeltry.io/delete-at']).toBeDefined();
   });
 
-  // Story 6 — delete: API error displayed in dialog
-  it('shows an error in the confirmation dialog when delete fails', async () => {
+  // Story 6 — delete: API error displayed in dialog when annotation patch fails
+  it('shows an error in the confirmation dialog when patching delete-at annotation fails', async () => {
     mockUseGet.mockReturnValue([makeClaim(), null]);
-    mockDelete.mockRejectedValueOnce({ message: 'permission denied' });
+    mockPatch.mockRejectedValueOnce({ message: 'permission denied' });
 
     render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={vi.fn()} />);
 
@@ -311,5 +312,46 @@ describe('ClusterClaimDetail', () => {
 
     expect(screen.getByRole('alert')).toBeDefined();
     expect(screen.getByText('Not found')).toBeDefined();
+  });
+
+  // Story 6 (grace period) — banner displayed when delete-at annotation already set
+  it('shows a deletion countdown banner when delete-at annotation is present', () => {
+    const deleteAt = new Date(Date.now() + 3_600_000).toISOString();
+    mockUseGet.mockReturnValue([makeClaim({}, { 'portal.smeltry.io/delete-at': deleteAt }), null]);
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    expect(screen.getByTestId('deletion-banner')).toBeDefined();
+    expect(screen.getByRole('button', { name: /cancel deletion/i })).toBeDefined();
+  });
+
+  // Story 6 (grace period) — cancel deletion removes annotation via patch
+  it('removes delete-at annotation when Cancel deletion is clicked', async () => {
+    const deleteAt = new Date(Date.now() + 3_600_000).toISOString();
+    mockUseGet.mockReturnValue([makeClaim({}, { 'portal.smeltry.io/delete-at': deleteAt }), null]);
+    mockPatch.mockResolvedValueOnce({});
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel deletion/i }));
+
+    expect(mockPatch).toHaveBeenCalledOnce();
+    const [, patchData] = mockPatch.mock.calls[0];
+    // null removes the annotation via strategic merge patch
+    expect(patchData.metadata.annotations['portal.smeltry.io/delete-at']).toBeNull();
+  });
+
+  // Story 6 (grace period) — cancel deletion error displayed in banner
+  it('shows an error in the banner when cancelling deletion fails', async () => {
+    const deleteAt = new Date(Date.now() + 3_600_000).toISOString();
+    mockUseGet.mockReturnValue([makeClaim({}, { 'portal.smeltry.io/delete-at': deleteAt }), null]);
+    mockPatch.mockRejectedValueOnce({ message: 'forbidden' });
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel deletion/i }));
+
+    expect(await screen.findByTestId('cancel-error')).toBeDefined();
+    expect(await screen.findByText(/forbidden/i)).toBeDefined();
   });
 });

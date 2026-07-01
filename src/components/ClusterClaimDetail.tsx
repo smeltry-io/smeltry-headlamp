@@ -15,9 +15,13 @@ interface ClusterClaimStatus {
   conditions?: unknown[];
 }
 
+const DELETE_AT_ANNOTATION = 'portal.smeltry.io/delete-at';
+// TODO: read from SiteConfig.spec.deleteGracePeriod once the field is added to the CRD.
+const DELETE_GRACE_MS = 60 * 60 * 1000;
+
 interface ClusterClaimDetailItem {
   jsonData: {
-    metadata: { name: string; namespace: string };
+    metadata: { name: string; namespace: string; annotations?: Record<string, string | null> };
     spec: { site: string; machineCount: number; addonProfile: string };
     status: ClusterClaimStatus;
   };
@@ -36,10 +40,11 @@ function ActionsDisabledNotice({ phase }: { phase: string }) {
 interface Props {
   name: string;
   namespace: string;
+  // onDeleted is kept for future use when actual deletion occurs after grace period
   onDeleted?: () => void;
 }
 
-export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
+export function ClusterClaimDetail({ name, namespace }: Props) {
   const [claim, error] = ClusterClaimClass.useGet(name, namespace);
 
   // kubeconfigSecret name is only known once the claim is loaded; we pass ''
@@ -53,6 +58,7 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
   const [scaleError, setScaleError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   if (error) {
     return <div role="alert">{error.message}</div>;
@@ -65,19 +71,31 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
   const item = claim as ClusterClaimDetailItem;
   const { status, spec } = item.jsonData;
   const isReady = status.phase === 'Ready';
+  const deleteAt = item.jsonData.metadata.annotations?.[DELETE_AT_ANNOTATION];
+  const pendingDeletion = Boolean(deleteAt);
 
-  // handleDelete captures `item` via closure. If useGet refreshes the object
-  // between the Delete click and the Confirm click, the latest version of `item`
-  // is used — which is the desired behaviour.
-  async function handleDelete() {
+  async function handleScheduleDelete() {
     setDeleteError(null);
     try {
-      // ClusterClaimClass.delete typing is not yet stable in the SDK; cast
-      // removed once the upstream type is published.
-      await (ClusterClaimClass as any).delete(item);
-      onDeleted?.();
+      const expiry = new Date(Date.now() + DELETE_GRACE_MS).toISOString();
+      await (ClusterClaimClass as any).patch(item, {
+        metadata: { annotations: { [DELETE_AT_ANNOTATION]: expiry } },
+      });
+      setConfirmDelete(false);
     } catch (err: any) {
       setDeleteError(err?.message ?? 'Unknown error');
+    }
+  }
+
+  async function handleCancelDelete() {
+    setCancelError(null);
+    try {
+      // null removes the annotation via strategic merge patch
+      await (ClusterClaimClass as any).patch(item, {
+        metadata: { annotations: { [DELETE_AT_ANNOTATION]: null } },
+      });
+    } catch (err: any) {
+      setCancelError(err?.message ?? 'Unknown error');
     }
   }
 
@@ -141,12 +159,20 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
         )}
       </dl>
 
+      {pendingDeletion && (
+        <div data-testid="deletion-banner" role="alert">
+          Deletion scheduled — cluster will be removed at {deleteAt}.
+          {cancelError && <span data-testid="cancel-error">{cancelError}</span>}
+          <button onClick={handleCancelDelete}>Cancel deletion</button>
+        </div>
+      )}
+
       {isReady ? (
         <>
           {/* Scale and Delete panels are mutually exclusive: opening one hides
               the other. If Scale is open the Delete button is not visible —
               the user must cancel Scale first. Acceptable UX for v1. */}
-          {!scaling && !confirmDelete && (
+          {!scaling && !confirmDelete && !pendingDeletion && (
             <>
               <button
                 onClick={() => {
@@ -173,7 +199,7 @@ export function ClusterClaimDetail({ name, namespace, onDeleted }: Props) {
                 Delete cluster <strong>{item.jsonData.metadata.name}</strong>? This action cannot be
                 undone.
               </p>
-              <button onClick={handleDelete}>Confirm</button>
+              <button onClick={handleScheduleDelete}>Confirm</button>
               <button
                 onClick={() => {
                   setConfirmDelete(false);
