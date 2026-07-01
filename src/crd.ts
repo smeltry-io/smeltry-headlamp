@@ -36,3 +36,11 @@ export const SiteConfigClass = K8s.crd.makeCustomResourceClass({
   singularName: 'siteconfig',
   isNamespaced: true,
 });
+
+export const AuditEventClass = K8s.crd.makeCustomResourceClass({
+  apiInfo: [{ group: 'portal.smeltry.io', version: 'v1alpha1' }],
+  kind: 'AuditEvent',
+  pluralName: 'auditevents',
+  singularName: 'auditevent',
+  isNamespaced: true,
+});
