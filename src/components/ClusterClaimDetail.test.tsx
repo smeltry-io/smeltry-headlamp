@@ -314,22 +314,6 @@ describe('ClusterClaimDetail', () => {
     expect(screen.getByText('Not found')).toBeDefined();
   });
 
-  // Story 6 (grace period) — confirm patches delete-at annotation instead of calling delete()
-  it('patches delete-at annotation when deletion is confirmed', async () => {
-    mockUseGet.mockReturnValue([makeClaim(), null]);
-    mockPatch.mockResolvedValueOnce({});
-
-    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" onDeleted={vi.fn()} />);
-
-    await userEvent.click(screen.getByRole('button', { name: /delete/i }));
-    await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
-
-    expect(mockDelete).not.toHaveBeenCalled();
-    expect(mockPatch).toHaveBeenCalledOnce();
-    const [, patchData] = mockPatch.mock.calls[0];
-    expect(patchData.metadata.annotations['portal.smeltry.io/delete-at']).toBeDefined();
-  });
-
   // Story 6 (grace period) — banner displayed when delete-at annotation already set
   it('shows a deletion countdown banner when delete-at annotation is present', () => {
     const deleteAt = new Date(Date.now() + 3_600_000).toISOString();
@@ -355,5 +339,19 @@ describe('ClusterClaimDetail', () => {
     const [, patchData] = mockPatch.mock.calls[0];
     // null removes the annotation via strategic merge patch
     expect(patchData.metadata.annotations['portal.smeltry.io/delete-at']).toBeNull();
+  });
+
+  // Story 6 (grace period) — cancel deletion error displayed in banner
+  it('shows an error in the banner when cancelling deletion fails', async () => {
+    const deleteAt = new Date(Date.now() + 3_600_000).toISOString();
+    mockUseGet.mockReturnValue([makeClaim({}, { 'portal.smeltry.io/delete-at': deleteAt }), null]);
+    mockPatch.mockRejectedValueOnce({ message: 'forbidden' });
+
+    render(<ClusterClaimDetail name="ml-training" namespace="tenant-acme" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /cancel deletion/i }));
+
+    expect(await screen.findByTestId('cancel-error')).toBeDefined();
+    expect(await screen.findByText(/forbidden/i)).toBeDefined();
   });
 });

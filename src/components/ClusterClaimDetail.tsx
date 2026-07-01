@@ -16,12 +16,12 @@ interface ClusterClaimStatus {
 }
 
 const DELETE_AT_ANNOTATION = 'portal.smeltry.io/delete-at';
-// Grace period before a cluster is actually deleted: 1 hour.
+// TODO: read from SiteConfig.spec.deleteGracePeriod once the field is added to the CRD.
 const DELETE_GRACE_MS = 60 * 60 * 1000;
 
 interface ClusterClaimDetailItem {
   jsonData: {
-    metadata: { name: string; namespace: string; annotations?: Record<string, string> };
+    metadata: { name: string; namespace: string; annotations?: Record<string, string | null> };
     spec: { site: string; machineCount: number; addonProfile: string };
     status: ClusterClaimStatus;
   };
@@ -58,6 +58,7 @@ export function ClusterClaimDetail({ name, namespace }: Props) {
   const [scaleError, setScaleError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   if (error) {
     return <div role="alert">{error.message}</div>;
@@ -87,13 +88,14 @@ export function ClusterClaimDetail({ name, namespace }: Props) {
   }
 
   async function handleCancelDelete() {
+    setCancelError(null);
     try {
       // null removes the annotation via strategic merge patch
       await (ClusterClaimClass as any).patch(item, {
         metadata: { annotations: { [DELETE_AT_ANNOTATION]: null } },
       });
-    } catch {
-      // ignore — UI will refresh via useGet
+    } catch (err: any) {
+      setCancelError(err?.message ?? 'Unknown error');
     }
   }
 
@@ -160,6 +162,7 @@ export function ClusterClaimDetail({ name, namespace }: Props) {
       {pendingDeletion && (
         <div data-testid="deletion-banner" role="alert">
           Deletion scheduled — cluster will be removed at {deleteAt}.
+          {cancelError && <span data-testid="cancel-error">{cancelError}</span>}
           <button onClick={handleCancelDelete}>Cancel deletion</button>
         </div>
       )}
