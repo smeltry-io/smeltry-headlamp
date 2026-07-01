@@ -77,7 +77,7 @@ jobs:
         run: |
           BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
           HEAD="${{ github.event.pull_request.head.sha || github.sha }}"
-          MISSING=$(git log "${BASE}..${HEAD}" --format="%H" | while read sha; do
+          MISSING=$(git log "${BASE}..${HEAD}" --no-merges --format="%H" | while read sha; do
             if ! git log -1 --format="%B" "$sha" | grep -q "^Signed-off-by:"; then
               echo "  $sha $(git log -1 --format='%s' "$sha")"
             fi
