@@ -15,13 +15,22 @@ interface ServerClaimItem {
 
 const DEGRADED_PHASES = new Set(['Failed']);
 
+function csvField(v: string): string {
+  if (v.includes(',') || v.includes('"') || v.includes('\n')) {
+    return `"${v.replace(/"/g, '""')}"`;
+  }
+  return v;
+}
+
 function exportCSV(servers: ServerClaimItem[]) {
   const header = 'tenant,name,phase,site,class,ip';
   const rows = servers.map(s => {
     const { namespace, name } = s.jsonData.metadata;
     const { site, machineClass } = s.jsonData.spec ?? {};
     const { phase, serverIP } = s.jsonData.status ?? {};
-    return [namespace, name, phase ?? '', site ?? '', machineClass ?? '', serverIP ?? ''].join(',');
+    return [namespace, name, phase ?? '', site ?? '', machineClass ?? '', serverIP ?? '']
+      .map(csvField)
+      .join(',');
   });
   const csv = [header, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -61,10 +70,12 @@ export function MachineHealth() {
   return (
     <CommonComponents.SectionBox title="Machine Health">
       <div>
-        {degradedCount > 0 ? (
-          <span>{degradedCount} degraded</span>
-        ) : (
-          <span>All healthy</span>
+        {servers.length > 0 && (
+          degradedCount > 0 ? (
+            <span>{degradedCount} degraded</span>
+          ) : (
+            <span>All healthy</span>
+          )
         )}
         <button onClick={() => exportCSV(servers)}>Export</button>
       </div>

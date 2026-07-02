@@ -79,6 +79,7 @@ describe('MachineHealth', () => {
     mockUseList.mockReturnValue([[], null]);
     render(<MachineHealth />);
     expect(screen.getByText('No machines')).toBeDefined();
+    expect(screen.queryByText('All healthy')).toBeNull();
   });
 
   it('renders one row per machine with name, namespace, phase, site, class and IP', () => {
