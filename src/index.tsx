@@ -10,6 +10,7 @@ import { AuditEventList } from './components/AuditEventList';
 import { ClusterClaimDetail } from './components/ClusterClaimDetail';
 import { ClusterClaimForm } from './components/ClusterClaimForm';
 import { ClusterClaimList } from './components/ClusterClaimList';
+import { MachineHealth } from './components/MachineHealth';
 
 registerSidebarEntry({
   parent: null,
@@ -110,6 +111,14 @@ registerSidebarEntry({
 
 registerSidebarEntry({
   parent: 'smeltry',
+  name: 'smeltry-machine-health',
+  label: 'Machine Health',
+  url: '/smeltry/admin/health',
+  icon: 'mdi:heart-pulse',
+});
+
+registerSidebarEntry({
+  parent: 'smeltry',
   name: 'smeltry-admin-clusters',
   label: 'All Clusters',
   url: '/smeltry/admin/clusters',
@@ -129,6 +138,13 @@ registerRoute({
   sidebar: 'smeltry-admin-machines',
   name: 'SmeltryAdminMachineList',
   component: () => <AdminMachineList />,
+});
+
+registerRoute({
+  path: '/smeltry/admin/health',
+  sidebar: 'smeltry-machine-health',
+  name: 'SmeltryMachineHealth',
+  component: () => <MachineHealth />,
 });
 
 registerRoute({
