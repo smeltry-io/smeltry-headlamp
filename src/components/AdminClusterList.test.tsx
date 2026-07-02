@@ -135,6 +135,24 @@ describe('AdminClusterList', () => {
     expect(screen.getByText('Forbidden')).toBeDefined();
   });
 
+  // Story 6 — filter yields no results (distinct from truly empty list)
+  it('shows a distinct message when the filter matches no cluster', async () => {
+    mockUseList.mockReturnValue([
+      [makeCluster('ml-training', 'tenant-acme', 'Ready', 'paris-dc1', 3)],
+      null,
+    ]);
+
+    render(<AdminClusterList />);
+
+    const input = screen.getByPlaceholderText('Filter by tenant…');
+    await userEvent.type(input, 'xyz');
+
+    expect(screen.queryByTestId('admin-cluster-row')).toBeNull();
+    expect(screen.getByText('No clusters match this filter')).toBeDefined();
+    // The generic "No clusters" message must NOT appear
+    expect(screen.queryByText('No clusters')).toBeNull();
+  });
+
   // Story 6 — loading state
   it('shows a loading indicator while data is being fetched', () => {
     mockUseList.mockReturnValue([null, null]);

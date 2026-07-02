@@ -46,8 +46,10 @@ export function AdminClusterList() {
         value={tenantFilter}
         onChange={e => setTenantFilter(e.target.value)}
       />
-      {filtered.length === 0 ? (
+      {clusters.length === 0 ? (
         <div>No clusters</div>
+      ) : filtered.length === 0 ? (
+        <div>No clusters match this filter</div>
       ) : (
         <table>
           <thead>
