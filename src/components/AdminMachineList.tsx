@@ -48,8 +48,6 @@ export function AdminMachineList() {
     );
   });
 
-  const hasActiveFilter = siteFilter || classFilter || statusFilter;
-
   return (
     <CommonComponents.SectionBox title="All Machines">
       <input
@@ -70,7 +68,7 @@ export function AdminMachineList() {
       {servers.length === 0 ? (
         <div>No machines</div>
       ) : filtered.length === 0 ? (
-        <div>{hasActiveFilter ? 'No machines match the current filters' : 'No machines'}</div>
+        <div>No machines match the current filters</div>
       ) : (
         <table>
           <thead>
