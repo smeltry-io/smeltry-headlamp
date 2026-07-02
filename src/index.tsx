@@ -4,6 +4,7 @@
 import { registerRoute, registerSidebarEntry } from '@kinvolk/headlamp-plugin/lib';
 import React from 'react';
 import { AdminAuditEventList } from './components/AdminAuditEventList';
+import { AdminClusterList } from './components/AdminClusterList';
 import { AuditEventList } from './components/AuditEventList';
 import { ClusterClaimDetail } from './components/ClusterClaimDetail';
 import { ClusterClaimForm } from './components/ClusterClaimForm';
@@ -100,10 +101,25 @@ registerRoute({
 
 registerSidebarEntry({
   parent: 'smeltry',
+  name: 'smeltry-admin-clusters',
+  label: 'All Clusters',
+  url: '/smeltry/admin/clusters',
+  icon: 'mdi:view-grid',
+});
+
+registerSidebarEntry({
+  parent: 'smeltry',
   name: 'smeltry-admin-audit',
   label: 'Global Audit',
   url: '/smeltry/admin/audit',
   icon: 'mdi:shield-search',
+});
+
+registerRoute({
+  path: '/smeltry/admin/clusters',
+  sidebar: 'smeltry-admin-clusters',
+  name: 'SmeltryAdminClusterList',
+  component: () => <AdminClusterList />,
 });
 
 registerRoute({
