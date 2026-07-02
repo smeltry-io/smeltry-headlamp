@@ -111,6 +111,23 @@ describe('AdminAddonProfileList', () => {
     expect(row.textContent).toContain('ingress');
   });
 
+  it('shows em-dash when description is absent', () => {
+    mockUseList.mockReturnValue([
+      [
+        {
+          jsonData: {
+            metadata: { name: 'bare', namespace: 'portal-system' },
+            spec: { components: [] },
+          },
+        },
+      ],
+      null,
+    ]);
+    render(<AdminAddonProfileList />);
+    const row = screen.getByTestId('addonprofile-row');
+    expect(row.textContent).toContain('—');
+  });
+
   it('renders multiple rows when multiple profiles exist', () => {
     mockUseList.mockReturnValue([
       [

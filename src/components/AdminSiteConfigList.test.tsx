@@ -89,6 +89,16 @@ describe('AdminSiteConfigList', () => {
     expect(row.textContent).toContain('provisioning-pool');
   });
 
+  it('shows em-dash for missing spec fields', () => {
+    mockUseList.mockReturnValue([
+      [{ jsonData: { metadata: { name: 'bare', namespace: 'portal-system' }, spec: {} } }],
+      null,
+    ]);
+    render(<AdminSiteConfigList />);
+    const row = screen.getByTestId('siteconfig-row');
+    expect(row.textContent?.match(/—/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('renders multiple rows when multiple sites exist', () => {
     mockUseList.mockReturnValue([
       [
