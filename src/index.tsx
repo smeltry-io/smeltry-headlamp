@@ -3,9 +3,11 @@
 
 import { registerRoute, registerSidebarEntry } from '@kinvolk/headlamp-plugin/lib';
 import React from 'react';
+import { AdminAddonProfileList } from './components/AdminAddonProfileList';
 import { AdminAuditEventList } from './components/AdminAuditEventList';
 import { AdminClusterList } from './components/AdminClusterList';
 import { AdminMachineList } from './components/AdminMachineList';
+import { AdminSiteConfigList } from './components/AdminSiteConfigList';
 import { AuditEventList } from './components/AuditEventList';
 import { ClusterClaimDetail } from './components/ClusterClaimDetail';
 import { ClusterClaimForm } from './components/ClusterClaimForm';
@@ -159,4 +161,34 @@ registerRoute({
   sidebar: 'smeltry-admin-audit',
   name: 'SmeltryAdminAudit',
   component: () => <AdminAuditEventList />,
+});
+
+registerSidebarEntry({
+  parent: 'smeltry',
+  name: 'smeltry-admin-sites',
+  label: 'Sites',
+  url: '/smeltry/admin/sites',
+  icon: 'mdi:map-marker-multiple',
+});
+
+registerSidebarEntry({
+  parent: 'smeltry',
+  name: 'smeltry-admin-addons',
+  label: 'Addon Profiles',
+  url: '/smeltry/admin/addons',
+  icon: 'mdi:puzzle',
+});
+
+registerRoute({
+  path: '/smeltry/admin/sites',
+  sidebar: 'smeltry-admin-sites',
+  name: 'SmeltryAdminSiteConfigList',
+  component: () => <AdminSiteConfigList />,
+});
+
+registerRoute({
+  path: '/smeltry/admin/addons',
+  sidebar: 'smeltry-admin-addons',
+  name: 'SmeltryAdminAddonProfileList',
+  component: () => <AdminAddonProfileList />,
 });
